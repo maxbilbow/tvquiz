@@ -19,13 +19,12 @@ class GameViewController: UIViewController {
         let scene = SCNScene(named: "art.scnassets/ship.scn")!
         
         // create and add a camera to the scene
-        let cameraNode = SCNNode()
-        cameraNode.camera = SCNCamera()
-        scene.rootNode.addChildNode(cameraNode)
-        
+        let cameraNode = scene.rootNode.childNodeWithName("mainCamera", recursively: false)!
+       
+        floor = scene.rootNode.childNodeWithName("floor", recursively: false)!
         // place the camera
         cameraNode.position = SCNVector3(x: 0, y: 0, z: 15)
-        
+        cameras.append(cameraNode)
         // create and add a light to the scene
         let lightNode = SCNNode()
         lightNode.light = SCNLight()
@@ -40,11 +39,6 @@ class GameViewController: UIViewController {
         ambientLightNode.light!.color = UIColor.darkGrayColor()
         scene.rootNode.addChildNode(ambientLightNode)
         
-        // retrieve the ship node
-        let ship = scene.rootNode.childNodeWithName("ship", recursively: true)!
-        
-        // animate the 3d object
-        ship.runAction(SCNAction.repeatActionForever(SCNAction.rotateByX(0, y: 2, z: 0, duration: 1)))
         
         // retrieve the SCNView
         let scnView = self.view as! SCNView
@@ -53,7 +47,7 @@ class GameViewController: UIViewController {
         scnView.scene = scene
         
         // allows the user to manipulate the camera
-        scnView.allowsCameraControl = true
+//        scnView.allowsCameraControl = true
         
         // show statistics such as fps and timing information
         scnView.showsStatistics = true
@@ -63,15 +57,61 @@ class GameViewController: UIViewController {
         
         // add a tap gesture recognizer
         let tapGesture = UITapGestureRecognizer(target: self, action: "handleTap:")
+        let panGesture = UIPanGestureRecognizer(target: self, action: "handlePan:")
+        let longPressGesture = UIPanGestureRecognizer(target: self, action: "handleLongPress:")
         var gestureRecognizers = [UIGestureRecognizer]()
         gestureRecognizers.append(tapGesture)
+        gestureRecognizers.append(panGesture)
+        gestureRecognizers.append(longPressGesture)
         if let existingGestureRecognizers = scnView.gestureRecognizers {
             gestureRecognizers.appendContentsOf(existingGestureRecognizers)
+            
+        }
+        for gr in gestureRecognizers {
+            print(gr.description)
         }
         scnView.gestureRecognizers = gestureRecognizers
+        
+    }
+    var floor: SCNNode!
+    var cameras: [SCNNode] = []
+    enum ControllMode {
+        case Camera, Floor
+    }
+    var controllMode: ControllMode! = .Floor
+    
+    var lastPos: CGPoint?
+    func handleLongPress(recogniser: UILongPressGestureRecognizer) {
+//        let dx = recogniser.locationInView(<#T##view: UIView?##UIView?#>)
+        if recogniser.state == .Began {
+            lastPos = recogniser.locationInView(recogniser.view)
+        } else if recogniser.state == .Ended {
+            lastPos = nil
+        } else if let lastPos = lastPos {
+            let node = controllMode == .Floor ? floor : cameras.first!
+            let newPos = recogniser.locationInView(recogniser.view)
+            let dx = newPos.x - lastPos.x
+            let dy = newPos.y - lastPos.y
+            self.lastPos = newPos
+            node.eulerAngles.x += Float(dy) * 0.0005
+            node.eulerAngles.z += Float(dx) * -0.0005
+            
+        }
+        
+        
     }
     
+//    override func pressesCancelled(presses: Set<UIPress>, withEvent event: UIPressesEvent?) {
+//        controllMode = .Floor
+//    }
+//    override func pressesBegan(presses: Set<UIPress>, withEvent event: UIPressesEvent?) {
+//        controllMode = .Camera
+//    }
+//    
     func handleTap(gestureRecognize: UIGestureRecognizer) {
+        if (controllMode != nil) {
+        return
+        }
         // retrieve the SCNView
         let scnView = self.view as! SCNView
         
@@ -105,6 +145,7 @@ class GameViewController: UIViewController {
             SCNTransaction.commit()
         }
     }
+    
     
     override func didReceiveMemoryWarning() {
         super.didReceiveMemoryWarning()
